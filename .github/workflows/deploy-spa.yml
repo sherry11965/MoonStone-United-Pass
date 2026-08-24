@@ -79,6 +79,20 @@ jobs:
             cp dist-spa/index.html "dist-spa/$route/index.html"
           done
 
+      # Deploy-layer static API mock (zero product-code change): the SPA
+      # /terms page fetches same-origin `/api/v1/legal-documents` from the
+      # browser (shared/legal-publication.ts via browserFetch). GitHub Pages
+      # has no API host, so the request 404s and logs a console error even
+      # though the page degrades to its static fallback. Serve the exact
+      # response body of the e2e host mock (e2e/webserver-spa.mjs API_MOCKS,
+      # JSON.stringify of `{ items: [] }`) as a static file so the demo site
+      # reaches parity with the e2e baseline and the /terms console error
+      # disappears.
+      - name: Generate static API mocks
+        run: |
+          mkdir -p dist-spa/api/v1
+          printf '{"items":[]}' > dist-spa/api/v1/legal-documents
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
