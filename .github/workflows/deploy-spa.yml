@@ -1,0 +1,95 @@
+#
+# Copyright (c) 2026 Chen Jiajie(Ariakage)
+#
+# Author: Chen Jiajie(Ariakage) <ariakage233@gmail.com>
+# Date: 2026-08-24
+# Description: Build the Vite SPA stack and deploy it to GitHub Pages as the
+#              project test site (https://sherry11965.github.io/MoonStone-United-Pass/).
+#
+# Base-path contract: Pages serves the site under the /MoonStone-United-Pass/
+# sub-path, so the build injects `--base=/MoonStone-United-Pass/` on the CLI
+# (no product config change); src/router/index.ts reads the matching
+# `import.meta.env.BASE_URL`.
+#
+# Env contract: the local `.env` is gitignored, so the build-time VITE_*
+# switches are injected explicitly below, mirroring `.env.example` semantics.
+#
+name: deploy-spa
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SPA
+        env:
+          VITE_USE_MOCK: "true"
+          VITE_PUBLIC_REGISTRATION_ENABLED: "false"
+        run: pnpm build:spa -- --base=/MoonStone-United-Pass/
+
+      # GitHub Pages has no SPA rewrite: pre-generate an index.html fallback
+      # for every static route so deep links answer 200 with the app shell
+      # (vue-router resolves the path client-side), plus 404.html so any
+      # unknown path still renders the app instead of the Pages default 404.
+      - name: Generate SPA deep-link fallbacks
+        run: |
+          cp dist-spa/index.html dist-spa/404.html
+          for route in login register authorize forgot-password reset-password \
+            verify-email logout spike privacy terms \
+            account account/security account/sessions account/applications \
+            account/data-export account/delete \
+            admin admin/audit admin/users admin/employees admin/employees/link \
+            admin/departments admin/providers admin/policies admin/policies/new \
+            admin/applications admin/applications/new admin/dreamup; do
+            mkdir -p "dist-spa/$route"
+            cp dist-spa/index.html "dist-spa/$route/index.html"
+          done
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-spa
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
