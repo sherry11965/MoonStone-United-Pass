@@ -24,6 +24,7 @@ import {
   CSRF_HEADER_NAME,
 } from "@/shared/constants";
 import { isApiError, type ApiError, type FieldError } from "@/shared/api-error";
+import { applyRouterBase } from "@/shared/router-base";
 
 export { BROWSER_API_BASE_URL as API_BASE_URL };
 
@@ -78,7 +79,16 @@ export async function browserFetch<T>(
     headers["Idempotency-Key"] = idempotencyKey;
   }
 
-  const response = await fetch(`${BROWSER_API_BASE_URL}${path}`, {
+  // Sub-path deployments (GitHub Pages project sites, `--base=…`) require
+  // the same-origin API request path to carry the router base, otherwise
+  // the request resolves against the host root and 404s. Same seam and
+  // prefixing rule as the hard navigations (`shared/router-base.ts`): only
+  // absolute single-slash internal paths are prefixed, root base `/`
+  // returns the path verbatim. The joined API path is always a single
+  // `/`-leading internal path, so this one junction covers every consumer
+  // of this client (browser queries/commands, legal-publication, admin
+  // shell).
+  const response = await fetch(applyRouterBase(`${BROWSER_API_BASE_URL}${path}`), {
     method,
     headers,
     credentials: "same-origin",

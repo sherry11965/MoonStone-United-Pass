@@ -26,6 +26,8 @@
     "shared/runtime-config-adapter.ts",
     "shared/router-base.ts",
     "shared/router-base.test.ts",
+    "shared/http/browser-http-client.ts",
+    "shared/http/browser-http-client.test.ts",
     "shared/queries/browser-queries.ts",
     "shared/queries/browser-queries.test.ts",
     "shared/legal-publication.ts",

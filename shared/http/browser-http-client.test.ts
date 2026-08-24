@@ -44,6 +44,57 @@ function headerOf(call: FetchCall, name: string): string | null {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.doUnmock("@/shared/runtime-config-adapter");
+  vi.resetModules();
+});
+
+describe("browserFetch request URL assembly (router base seam)", () => {
+  // Each assertion issues multiple requests, so the stub must mint a fresh
+  // Response per call (a Response body is single-read).
+  function stubFreshFetch(): { calls: FetchCall[] } {
+    const calls: FetchCall[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, init });
+        return jsonResponse("{}");
+      }),
+    );
+    return { calls };
+  }
+
+  it("keeps the same-origin API path unchanged under the root base", async () => {
+    // Static import resolves through the REAL adapter: bare vitest is not
+    // the Vite SPA stack, so the base is `/` and the request path must
+    // stay the exact legacy target (default builds + Nuxt stack).
+    vi.stubGlobal("document", { cookie: "" });
+    const { calls } = stubFreshFetch();
+
+    await browserFetch("/me");
+    await browserFetch("/legal-documents");
+
+    expect(calls[0].url).toBe("/api/v1/me");
+    expect(calls[1].url).toBe("/api/v1/legal-documents");
+  });
+
+  it("prefixes the deployment base onto the API path in the SPA stack", async () => {
+    vi.stubGlobal("document", { cookie: "" });
+    const { calls } = stubFreshFetch();
+    vi.resetModules();
+    vi.doMock("@/shared/runtime-config-adapter", () => ({
+      readRouterBaseRaw: () => "/MoonStone-United-Pass/",
+    }));
+
+    const { browserFetch: spaBrowserFetch } = await import("./browser-http-client");
+
+    await spaBrowserFetch("/me");
+    await spaBrowserFetch("/legal-documents");
+    await spaBrowserFetch("/admin/users?cursor=c1&limit=20");
+
+    expect(calls[0].url).toBe("/MoonStone-United-Pass/api/v1/me");
+    expect(calls[1].url).toBe("/MoonStone-United-Pass/api/v1/legal-documents");
+    expect(calls[2].url).toBe("/MoonStone-United-Pass/api/v1/admin/users?cursor=c1&limit=20");
+  });
 });
 
 describe("browserFetch CSRF wiring", () => {
