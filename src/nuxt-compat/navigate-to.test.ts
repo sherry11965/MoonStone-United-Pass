@@ -25,6 +25,8 @@ import { navigateTo } from "./navigate-to";
 describe("navigateTo (SPA compat)", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.doUnmock("@/shared/runtime-config-adapter");
+    vi.resetModules();
     routerPush.mockClear();
     routerReplace.mockClear();
   });
@@ -79,6 +81,33 @@ describe("navigateTo (SPA compat)", () => {
     expect(assign).toHaveBeenCalledWith("https://example.com/consent");
     expect(routerPush).not.toHaveBeenCalled();
     expect(routerReplace).not.toHaveBeenCalled();
+  });
+
+  it("keeps internal external navigation unchanged under the root base", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", { location: { assign } });
+
+    await navigateTo("/account", { external: true });
+
+    expect(assign).toHaveBeenCalledWith("/account");
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("prefixes the deployment base onto internal external navigation in the SPA stack", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", { location: { assign } });
+    vi.resetModules();
+    vi.doMock("@/shared/runtime-config-adapter", () => ({
+      readRouterBaseRaw: () => "/MoonStone-United-Pass/",
+    }));
+
+    const { navigateTo: spaNavigateTo } = await import("./navigate-to");
+
+    await spaNavigateTo("/admin/policies/policy_1", { external: true });
+    await spaNavigateTo("https://example.com/consent", { external: true });
+
+    expect(assign).toHaveBeenNthCalledWith(1, "/MoonStone-United-Pass/admin/policies/policy_1");
+    expect(assign).toHaveBeenNthCalledWith(2, "https://example.com/consent");
   });
 
   it("rejects external navigation for non-string targets", async () => {

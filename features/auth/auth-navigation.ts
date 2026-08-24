@@ -6,6 +6,8 @@
 // Description: Hard navigation helper for post-authentication transitions
 //
 
+import { applyRouterBase } from "@/shared/router-base";
+
 /**
  * Full-document navigation used after a security state change (login
  * completed, MFA completed, consent decision applied, logout).
@@ -15,9 +17,15 @@
  * consent resolutions, current user), so the next page must re-run its
  * server-side resolution instead of reusing a stale payload. The helper is
  * split out so component tests can stub the side effect.
+ *
+ * The target passes through `applyRouterBase` (shared/router-base.ts):
+ * absolute internal paths gain the router base prefix required by
+ * sub-path deployments (the Pages site builds with `--base=...`), while
+ * external/protocol-relative URLs and the root base `/` keep their exact
+ * legacy targets — the Nuxt stack behaviour is unchanged by construction.
  */
 export function hardNavigate(url: string): void {
-  window.location.assign(url);
+  window.location.assign(applyRouterBase(url));
 }
 
 /**

@@ -26,6 +26,7 @@ import type { PermissionCapabilities } from "@/shared/types/permissions";
 import { isApiError } from "@/shared/api-error";
 import { NO_PERMISSIONS } from "@/shared/types/permissions";
 import { navigateTo } from "@/src/nuxt-compat";
+import { applyRouterBase } from "@/shared/router-base";
 import { useAccountShellBrowser } from "@/features/account/composables/useAccountShellBrowser";
 
 type ShellNavigationItem = {
@@ -97,6 +98,11 @@ const visibleManagementNavigation = computed(() => {
     (item) => !item.requiresPermission || permissions[item.requiresPermission],
   );
 });
+
+// The logout link is a raw anchor (full-document navigation, not
+// router-resolved), so it must carry the router base prefix on sub-path
+// deployments (the Pages site builds with `--base=...`).
+const logoutHref = applyRouterBase("/logout");
 
 // Legacy account-mode profile description (dreamUP roles belong to the admin
 // surface and are resolved there once that milestone lands).
@@ -218,7 +224,7 @@ function handleBackdropKeydown(event: KeyboardEvent): void {
             <span>{{ profileDescription }}</span>
           </div>
         </div>
-        <a class="logout-link" href="/logout">退出登录</a>
+        <a class="logout-link" :href="logoutHref">退出登录</a>
       </div>
     </aside>
 

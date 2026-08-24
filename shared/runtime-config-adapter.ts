@@ -28,9 +28,17 @@
  *    with the nuxt.config.ts default (`false`), mirroring the documented
  *    semantics of `test/nuxt-imports.stub.ts`.
  *
- * This module only surfaces the RAW value; the exact legacy
+ * The mock/real selection only surfaces the RAW value; the exact legacy
  * `String(raw) === "true"` contract (no silent fallback) is enforced by the
  * sole sanctioned consumer, `shared/data-source-mode.ts` (AGENTS.md §18).
+ *
+ * The router base path (`readRouterBaseRaw`) is the second configuration
+ * seam in this module: the Vite SPA stack bakes `import.meta.env.BASE_URL`
+ * (mirrors the CLI `--base` for sub-path deployments, e.g. GitHub Pages
+ * project sites), while every other stack resolves the constant `/` — the
+ * Nuxt app.baseURL is not configured (nuxt.config.ts), so the Nuxt stack is
+ * unaffected by construction. The sanctioned consumer is
+ * `shared/router-base.ts`.
  */
 
 // Compile-time marker injected only by the Vite SPA build
@@ -75,4 +83,26 @@ export function readUseMockDataSourceRaw(): unknown {
 
   // nuxt.config.ts runtimeConfig.public.useMock default.
   return false;
+}
+
+/**
+ * Reads the router base path for the current stack.
+ *
+ * Vite SPA stack: `import.meta.env.BASE_URL`, the value Vite derives from
+ * the `base` option (the deploy workflow builds with
+ * `--base=/MoonStone-United-Pass/`). Any non-absolute value degrades to the
+ * root `/` instead of producing a malformed prefix.
+ *
+ * Every other stack (Nuxt client/SSR, bare vitest): the constant `/` — the
+ * Nuxt app.baseURL is not configured, so shared modules entering the Nuxt
+ * bundle keep their exact legacy targets.
+ */
+export function readRouterBaseRaw(): string {
+  if (inViteSpaStack()) {
+    const env = (import.meta as unknown as { env?: { BASE_URL?: unknown } }).env;
+    const base = env?.BASE_URL;
+    if (typeof base === "string" && base.startsWith("/")) return base;
+  }
+
+  return "/";
 }

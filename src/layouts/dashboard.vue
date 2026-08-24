@@ -23,6 +23,7 @@ import { computed, h, ref } from "vue";
 import { useRoute } from "vue-router";
 import type { MenuGroupOption, MenuOption } from "naive-ui";
 import { navigateTo } from "@/src/nuxt-compat";
+import { applyRouterBase } from "@/shared/router-base";
 import { useAdminShellBrowser } from "@/features/admin/composables/useAdminShellBrowser";
 import {
   ADMIN_ACCOUNT_NAVIGATION,
@@ -131,6 +132,11 @@ function handleMenuSelect(key: string): void {
   void navigateTo(key, { external: true });
 }
 
+// The logout link is a raw anchor (full-document navigation, not
+// router-resolved), so it must carry the router base prefix on sub-path
+// deployments (the Pages site builds with `--base=...`).
+const logoutHref = applyRouterBase("/logout");
+
 // DreamUP administration group: the frozen shell shows it when the gate
 // resolved at least one DreamUP event; the browser shell degrades to an
 // empty event list (no DreamUP surface) when the lookup fails.
@@ -229,7 +235,7 @@ function handleBackdropKeydown(event: KeyboardEvent): void {
             <span>{{ profileDescription }}</span>
           </div>
         </div>
-        <a class="logout-link" href="/logout">退出登录</a>
+        <a class="logout-link" :href="logoutHref">退出登录</a>
       </div>
     </aside>
 

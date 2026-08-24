@@ -7,6 +7,7 @@
 //
 
 import type { RouteLocationRaw, Router } from "vue-router";
+import { applyRouterBase } from "@/shared/router-base";
 
 export type NavigateToOptions = {
   /** Full-document navigation through `window.location`. */
@@ -26,7 +27,9 @@ export type NavigateToOptions = {
  *
  * - `{ external: true }` performs a full-document navigation through
  *   `window.location.assign` (mirrors the frozen shells' full-document
- *   navigation semantics).
+ *   navigation semantics). Absolute internal targets pass through
+ *   `applyRouterBase` (shared/router-base.ts) so sub-path deployments keep
+ *   the Pages base prefix; external URLs pass through untouched.
  * - Internal targets go through the app router: `push` by default, `replace`
  *   for `redirectCode` 301/307/308 (the SSR permanent/temporary-preserve
  *   redirects never grow the browser history) or explicit `replace: true`.
@@ -43,7 +46,7 @@ export async function navigateTo(
     if (typeof to !== "string") {
       throw new TypeError("navigateTo: external navigation requires a string URL");
     }
-    window.location.assign(to);
+    window.location.assign(applyRouterBase(to));
     return;
   }
 
