@@ -29,7 +29,7 @@ vi.mock("@/shared/http/browser-http-client", () => ({
 // covered at the bottom via vi.resetModules + vi.doMock.
 vi.mock("@/shared/data-source-mode", () => ({ USE_MOCK_DATA_SOURCE: false }));
 
-import { browserQueries } from "@/shared/queries/browser-queries";
+import { browserQueries, getPublicLoginProviders } from "@/shared/queries/browser-queries";
 import { mockUnitedPassDataSource } from "@/shared/mock/united-pass-data-source";
 
 const CURRENT_USER_BODY = {
@@ -211,6 +211,53 @@ describe("browserQueries — mock data source mode", () => {
     expect(fetchState.calls).toEqual([]);
     await expect(mockUnitedPassDataSource.getCurrentUser()).resolves.toEqual(user);
     await expect(mockUnitedPassDataSource.getCurrentPermissions()).resolves.toEqual(permissions);
+
+    vi.doUnmock("@/shared/data-source-mode");
+  });
+});
+
+describe("getPublicLoginProviders — standalone export (real data source)", () => {
+  it("issues GET /auth/providers and narrows onto the PublicLoginProviders contract", async () => {
+    fetchState.responder = () => ({
+      items: [{ providerId: "provider_feishu", displayName: "飞书", loginEnabled: true }],
+    });
+
+    await expect(getPublicLoginProviders()).resolves.toEqual([
+      { providerId: "provider_feishu", displayName: "飞书", loginEnabled: true },
+    ]);
+    expect(fetchState.calls).toEqual(["/auth/providers"]);
+  });
+
+  it("resolves [] on an explicit not_found", async () => {
+    fetchState.responder = () => {
+      throw { kind: "not_found" as const, message: "providers missing" };
+    };
+
+    await expect(getPublicLoginProviders()).resolves.toEqual([]);
+    expect(fetchState.calls).toEqual(["/auth/providers"]);
+  });
+
+  it("rethrows non-not_found failures", async () => {
+    const serverError = { kind: "server_error" as const, message: "backend down" };
+    fetchState.responder = () => {
+      throw serverError;
+    };
+
+    await expect(getPublicLoginProviders()).rejects.toBe(serverError);
+  });
+});
+
+describe("getPublicLoginProviders — mock data source mode", () => {
+  it("returns [] without any fetch", async () => {
+    vi.resetModules();
+    vi.doMock("@/shared/data-source-mode", () => ({ USE_MOCK_DATA_SOURCE: true }));
+
+    const { getPublicLoginProviders: mockGetPublicLoginProviders } = await import(
+      "@/shared/queries/browser-queries"
+    );
+
+    await expect(mockGetPublicLoginProviders()).resolves.toEqual([]);
+    expect(fetchState.calls).toEqual([]);
 
     vi.doUnmock("@/shared/data-source-mode");
   });

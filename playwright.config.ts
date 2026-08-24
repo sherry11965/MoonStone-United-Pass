@@ -21,28 +21,21 @@ if (!Number.isInteger(stubPort) || stubPort < 1 || stubPort > 65535) {
   throw new Error("UP_E2E_STUB_PORT must be a valid TCP port");
 }
 
-export default defineConfig({
-  testDir: "./e2e",
-  globalSetup: "./e2e/global-setup.ts",
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  // `list` instead of the default `html`: the HTML reporter starts an
-  // interactive "Serving HTML report" server after a failed run, which blocks
-  // the terminal and keeps the redirected log file handle open.
-  reporter: "list",
-  use: {
-    baseURL: `http://localhost:${e2ePort}`,
-    trace: "on-first-retry",
-  },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
-  webServer: {
+// Stack selector: `nuxt` (default — the frozen 63-case baseline, unchanged
+// when the variable is absent) or `spa` (the Vite SPA production build served
+// by e2e/webserver-spa.mjs). Only `webServer` differs between the stacks; the
+// suites, global setup and stub backend are stack-agnostic at the test-case
+// layer by design. The webServer readiness probes are, in contrast,
+// deliberately stack-specific (Nuxt: `/spike`; SPA: `/__e2e_stack_spa`) so a
+// leftover server of the other stack on the shared port can never be adopted
+// through `reuseExistingServer`.
+const e2eStack = process.env.UP_E2E_STACK ?? "nuxt";
+if (e2eStack !== "nuxt" && e2eStack !== "spa") {
+  throw new Error('UP_E2E_STACK must be "nuxt" or "spa"');
+}
+
+/** Nuxt production-stack webServer (the frozen baseline; byte-for-byte stable). */
+const nuxtWebServer = {
     // The baseline runs against a PRODUCTION build rather than `nuxt dev`
     // because the dev toolchain has two pre-existing SSR blockers that are
     // unrelated to product behavior (see agent.txt "结果/偏离"):
@@ -85,5 +78,59 @@ export default defineConfig({
       // Listen port for the built Nitro node server.
       PORT: String(e2ePort),
     },
+};
+
+/**
+ * Vite SPA production-stack webServer.
+ *
+ * The launcher (e2e/webserver-spa.mjs) runs `vite build` first — baking
+ * `VITE_USE_MOCK` and the registration flag into the bundle (`import.meta.env`
+ * values are statically substituted, so a runtime override could never reach
+ * them) — then serves `dist-spa/` in-process with the redirect rule table,
+ * the anonymous session gate and the `/api/v1` stub passthrough. timeout and
+ * reuseExistingServer mirror the Nuxt branch; the readiness `url` does NOT:
+ * it points at the stack-unique probe `/__e2e_stack_spa`, answered only by
+ * this host. Probing `/spike` (which both stacks answer 200 for) would let
+ * `reuseExistingServer: true` silently adopt a leftover Nuxt server on the
+ * shared port and produce false acceptance results.
+ */
+const spaWebServer = {
+    command: `node e2e/webserver-spa.mjs`,
+    url: `http://localhost:${e2ePort}/__e2e_stack_spa`,
+    reuseExistingServer: true,
+    // Generous: the launcher runs `vite build` first.
+    timeout: 900_000,
+    env: {
+      // Baked into the SPA bundle so the mock data source resolves true.
+      VITE_USE_MOCK: "true",
+      // Frozen baseline semantics: public registration closed (ADR-0016).
+      VITE_PUBLIC_REGISTRATION_ENABLED: "false",
+      // Listen port of the SPA e2e host / stub passthrough target.
+      UP_E2E_PORT: String(e2ePort),
+      UP_E2E_STUB_PORT: String(stubPort),
+    },
+};
+
+export default defineConfig({
+  testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  // `list` instead of the default `html`: the HTML reporter starts an
+  // interactive "Serving HTML report" server after a failed run, which blocks
+  // the terminal and keeps the redirected log file handle open.
+  reporter: "list",
+  use: {
+    baseURL: `http://localhost:${e2ePort}`,
+    trace: "on-first-retry",
   },
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
+  webServer: e2eStack === "spa" ? spaWebServer : nuxtWebServer,
 });

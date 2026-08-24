@@ -31,6 +31,7 @@ import {
   parsePolicyDetail,
   parseSecuritySummary,
   parseProviderDetail,
+  parsePublicLoginProviders,
   parseSyncConflicts,
   parseUserDetail,
   parseUserSessions,
@@ -210,3 +211,29 @@ export const browserQueries: UnitedPassQueries = {
         await browserFetch<unknown>(withAuditQuery("/admin/audit-events", query)),
       ),
 };
+
+/**
+ * Public login providers (standalone export, NOT part of `UnitedPassQueries`).
+ *
+ * Browser-side mirror of `server/queries/server-queries.ts` L214-222, where the
+ * same function is likewise exported standalone next to the `serverQueries`
+ * record. Semantics are kept identical branch-by-branch:
+ *
+ * - mock mode → `[]` (no mock fixture ever signs a provider list);
+ * - real mode → `browserFetch("/auth/providers")` narrowed through
+ *   `parsePublicLoginProviders` (shared/response-validators.ts);
+ * - an explicit `not_found` narrows onto `[]`;
+ * - every other failure is rethrown untouched.
+ *
+ * Consumed by the P3a login page (`useLoginContextBrowser`) to compute
+ * `feishuLoginEnabled`, mirroring `server/routes/login-context.get.ts`.
+ */
+export async function getPublicLoginProviders() {
+  if (USE_MOCK_DATA_SOURCE) return [];
+  try {
+    return parsePublicLoginProviders(await browserFetch<unknown>("/auth/providers"));
+  } catch (error) {
+    if (isApiError(error) && error.kind === "not_found") return [];
+    throw error;
+  }
+}
