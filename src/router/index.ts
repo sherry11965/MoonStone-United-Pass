@@ -11,7 +11,12 @@ import { resetHeadTitle } from "@/src/nuxt-compat/use-head";
 import { appRoutes } from "./routes";
 
 export const router = createRouter({
-  history: createWebHistory(),
+  // `import.meta.env.BASE_URL` mirrors the Vite `base` option: it is `/` for
+  // every local/dev/default build (identical to the previous bare
+  // `createWebHistory()` semantics) and only differs when the SPA is built
+  // with an explicit `--base` for a sub-path deployment (e.g. GitHub Pages
+  // project sites), where a root-pinned history would never match.
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: appRoutes,
 });
 
