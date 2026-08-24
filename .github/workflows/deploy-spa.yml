@@ -51,11 +51,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Invokes the exact `build:spa` script body (`vite build`) through
+      # `pnpm exec` directly: `pnpm build:spa -- --base=…` would forward the
+      # literal `--` to vite on CI (vite treats args after `--` as positional
+      # and silently drops `--base`), leaving the bundle rooted at `/`.
       - name: Build SPA
         env:
           VITE_USE_MOCK: "true"
           VITE_PUBLIC_REGISTRATION_ENABLED: "false"
-        run: pnpm build:spa -- --base=/MoonStone-United-Pass/
+        run: pnpm exec vite build --base=/MoonStone-United-Pass/
 
       # GitHub Pages has no SPA rewrite: pre-generate an index.html fallback
       # for every static route so deep links answer 200 with the app shell
