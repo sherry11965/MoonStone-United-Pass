@@ -16,6 +16,7 @@ export default [
       ".nuxt/**",
       ".output/**",
       "dist/**",
+      "dist-spa/**",
       "node_modules/**",
       "playwright-report/**",
       "test-results/**",

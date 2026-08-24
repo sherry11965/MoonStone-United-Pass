@@ -34,8 +34,21 @@ test.describe("Naive UI SSR spike", () => {
     // n-data-table rows rendered server-side.
     await expect(page.getByTestId("spike-table-card")).toContainText("n-data-table");
     // n-modal trigger present; opening it verifies client-side interactivity.
-    await page.getByTestId("spike-open-modal").click();
-    await expect(page.getByTestId("spike-modal")).toBeVisible();
+    const openModal = page.getByTestId("spike-open-modal");
+    const modal = page.getByTestId("spike-modal");
+    await openModal.click();
+    // The SSR shell is fully painted before Vue hydration attaches the click
+    // listener, so under load a click issued right after `goto` can land
+    // pre-hydration and be silently lost (observed once in a full 4-worker
+    // run). Re-issue the idempotent trigger (`showModal = true`) until the
+    // teleported modal surfaces; the frozen visibility assertion itself is
+    // unchanged and still fails if the modal never opens.
+    await expect(async () => {
+      if (!(await modal.isVisible())) {
+        await openModal.click();
+      }
+      expect(await modal.isVisible()).toBe(true);
+    }).toPass({ timeout: 10_000, intervals: [500] });
 
     // No hydration mismatches or runtime failures may have surfaced.
     const hydrationErrors = consoleErrors.filter((text) =>

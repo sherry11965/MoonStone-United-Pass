@@ -59,7 +59,7 @@ try {
     stdio: ["ignore", "ignore", "inherit"],
     env: process.env,
   });
-} catch (error) {
+} catch {
   console.error("[e2e webserver] nuxt build failed — aborting webServer startup");
   process.exit(1);
 }
