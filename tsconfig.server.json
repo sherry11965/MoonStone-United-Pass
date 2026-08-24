@@ -1,0 +1,17 @@
+{
+  "extends": "./.nuxt/tsconfig.server.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": false,
+    "lib": ["ESNext", "dom", "dom.iterable", "webworker"]
+  },
+  "include": [
+    ".nuxt/types/nitro-nuxt.d.ts",
+    ".nuxt/types/nitro.d.ts",
+    "server/**/*",
+    "test/server/**/*"
+  ],
+  "exclude": [
+    "dist",
+    ".output"
+  ]
+}

@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Nuxt build output
+.nuxt
+.output
+dist
+dist-spa
+
+# Test artifacts
+coverage
+test-results
+playwright-report
+e2e-report
+
+# Logs & misc
+*.log
+.DS_Store
+*.tsbuildinfo
+
+# Local environment (only .env.example is tracked)
+.env
